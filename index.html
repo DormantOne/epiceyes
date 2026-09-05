@@ -134,53 +134,36 @@ function buildPrompt(showStatus=true){
   const set=r?.setting||setting||'Not specified';
   const goal=$('goal').value.trim()||'Not supplied';
 
-  const p=`EPIC EYES — SCREEN-GROUNDED NAVIGATION PAYLOAD
+  const p=`EPIC EYES — USER SESSION PAYLOAD
 
-ROLE
-${role}
+USER CONTEXT
+Role: ${role}
+Role family: ${fam}
+Setting: ${set}
+TRAIN profile / Epic area: ${area}
 
-ROLE FAMILY
-${fam}
-
-SETTING
-${set}
-
-TRAIN PROFILE / EPIC AREA
-${area}
-
-USER QUESTION
+USER GOAL
 ${goal}
 
 SCREENSHOT
-The Epic screenshot is embedded in this SAME PDF. Inspect it directly to determine the current Epic screen, visible controls, menu state, and likely workflow location. Do not ask me to identify the screen if the screenshot is readable.
+The current Epic screenshot is embedded in this SAME PDF.
 
-YOUR JOB
-- Use the installed epic-screenshot-navigation skill for screenshot interpretation.
-- Treat the screenshot as the strongest evidence about where I am.
-- Answer my actual question above.
-- Start with the next appropriate action.
-- Prefer one action at a time when later steps depend on unseen screens.
-- Use exact labels that are visibly present.
-- Do not invent local UPMC buttons, menus, permissions, SmartSets, pools, preference lists, or workflows.
-- If another screenshot would resolve uncertainty, tell me exactly what to capture next rather than guessing.
-- Keep Epic navigation separate from patient-specific clinical decision-making.
-- Maintain a compact PROCESS SO FAR so I do not need to repeat completed steps.
+EXECUTION
+Use your standing Epic Eyes instructions and the installed epic-screenshot-navigation skill.
 
-LINK FORMAT
-Whenever you provide a useful URL, render it as a descriptive clickable Markdown link rather than bare URL text.
+- Infer the current screen from the screenshot.
+- Reason from the CURRENT visible state toward the USER GOAL.
+- For a multi-screen task, show a short discrete route of about 3–6 steps.
+- Then identify the SINGLE next visible action the user can perform now.
+- Use the exact visible label for that current action when possible.
+- Do not jump ahead to a later screen simply because the final goal occurs there.
+- For future unseen steps, describe the function rather than inventing exact local labels.
+- If another screenshot is needed after the current action, say exactly what to capture.
+- If one visible current control is clearly the next action, use sparse visual pointing when supported.
+- Do not expose coordinates, bounding boxes, or localization metadata.
+- Keep the answer concise.
 
-OUTPUT
-Be extremely concise.
-Default to:
-**Next: click "<visible label>".**
-Add at most one short sentence if needed.
-Do not expose coordinate or bounding-box data.
-
-ANNOTATED IMAGE
-When one visible control is clearly the next action, use the epic-screenshot-navigation skill to return a sparsely annotated image with one short arrow and thin outline pointing to that control. Surface the annotated image in the response if the runtime supports created files or image editing.
-
-MODEL
-Use the strongest approved reasoning/thinking mode available. Be concise, practical, and screenshot-grounded.`;
+The PDF already contains the question and screenshot. A lone ? in the chat is only a send trigger and adds no new task.`;
 
   $('payloadOut').textContent=p;
   if(showStatus)status(imageBlob?'PDF content ready.':'Add a screenshot before opening Epic Eyes.',!!imageBlob);
