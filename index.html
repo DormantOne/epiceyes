@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -77,7 +76,7 @@
   <section class="card">
     <h2><span class="step">5</span>Open Epic Eyes + make the PDF</h2>
     <div class="small">
-      This is one action. The page creates <b>one PDF containing your structured prompt + screenshot</b>, downloads it, and opens the dedicated Epic Eyes agent.
+      This creates <b>one PDF containing only your role, question, and screenshot</b>, downloads it, and opens Epic Eyes.
     </div>
 
     <div class="actions" style="margin-top:12px">
@@ -91,8 +90,8 @@
       <b>In Epic Eyes:</b> attach <b>Epic_Eyes_Payload.pdf</b>, type a single <b>?</b>, and send.
     </div>
 
-    <label style="margin-top:14px">What will be inside the PDF</label>
-    <div class="output" id="payloadOut">Your role, full question, Epic Eyes instructions, and screenshot will be combined into one PDF.</div>
+    <label style="margin-top:14px">Minimal PDF payload</label>
+    <div class="output" id="payloadOut">Your role, question, and screenshot will be combined into one PDF. The agent's standing instructions do the rest.</div>
   </section>
 
   <div class="footer">Epic Eyes · single self-contained payload page · screenshots stay in this browser tab · <a href="https://forms.cloud.microsoft/r/DAgGSxnB21" target="_blank" rel="noopener">feedback</a></div>
@@ -130,53 +129,38 @@ function buildPrompt(showStatus=true){
   const r=selectedRoleObj();
   const role=r?.role||'Not specified';
   const area=r?.area||'Not specified';
-  const fam=r?.family||family||'Not specified';
   const set=r?.setting||setting||'Not specified';
   const goal=$('goal').value.trim()||'Not supplied';
 
-  const p=`EPIC EYES — USER SESSION PAYLOAD
+  const p=`EPIC EYES SESSION
 
-USER CONTEXT
-Role: ${role}
-Role family: ${fam}
-Setting: ${set}
-TRAIN profile / Epic area: ${area}
+ROLE
+${role}
 
-USER GOAL
+SETTING
+${set}
+
+TRAIN PROFILE / EPIC AREA
+${area}
+
+QUESTION
 ${goal}
 
 SCREENSHOT
-The current Epic screenshot is embedded in this SAME PDF.
+The next page of this same PDF contains the current Epic screenshot.
 
-EXECUTION
-Use your standing Epic Eyes instructions and the installed epic-screenshot-navigation skill.
-
-- Infer the current screen from the screenshot.
-- Reason from the CURRENT visible state toward the USER GOAL.
-- For a multi-screen task, show a short discrete route of about 3–6 steps.
-- Then add a visually prominent heading exactly: NEXT STEP.
-- Under NEXT STEP, give exactly ONE current action the user can perform now.
-- Use the exact visible label for that current action when possible.
-- Do not jump ahead to a later screen simply because the final goal occurs there.
-- For future unseen steps, describe the function rather than inventing exact local labels.
-- If another screenshot is needed after the current action, say exactly what to capture.
-- If one visible current control or clickable region is clearly the NEXT STEP, prefer a focused annotated image when supported.
-- Enlarge or crop the relevant screenshot area if the full screen makes the target too small.
-- Use one short arrow and thin outline; do not merely echo the unannotated screenshot when a confident target is available.
-- Do not expose coordinates, bounding boxes, or localization metadata.
-- Keep the answer concise.
-
-The PDF already contains the question and screenshot. A lone ? in the chat is only a send trigger and adds no new task.`;
+Use your standing Epic Eyes agent instructions and screenshot-navigation skill.
+A lone ? in the chat is only a send trigger.`;
 
   $('payloadOut').textContent=p;
-  if(showStatus)status(imageBlob?'PDF content ready.':'Add a screenshot before opening Epic Eyes.',!!imageBlob);
+  if(showStatus)status(imageBlob?'PDF ready to build.':'Add a screenshot before opening Epic Eyes.',!!imageBlob);
   return p;
 }
 
 function ascii(s){return s.normalize('NFKD').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').replace(/…/g,'...').replace(/[^\x09\x0A\x0D\x20-\x7E]/g,'?')}function escPdf(s){return s.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}function wrapText(text,max=92){const out=[];for(const raw of ascii(text).split(/\r?\n/)){if(!raw){out.push('');continue}let line='';for(const word of raw.split(/\s+/)){if(!line)line=word;else if((line+' '+word).length<=max)line+=' '+word;else{out.push(line);line=word}}if(line)out.push(line)}return out}function bytes(s){return new TextEncoder().encode(s)}function concat(arr){let n=arr.reduce((a,b)=>a+b.length,0),o=new Uint8Array(n),p=0;for(const a of arr){o.set(a,p);p+=a.length}return o}async function jpegFromBlob(blob){let source,w0,h0;if('createImageBitmap'in window){source=await createImageBitmap(blob);w0=source.width;h0=source.height}else{source=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=URL.createObjectURL(blob)});w0=source.naturalWidth;h0=source.naturalHeight}const max=2200,scale=Math.min(1,max/Math.max(w0,h0));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w0*scale));c.height=Math.max(1,Math.round(h0*scale));c.getContext('2d').drawImage(source,0,0,c.width,c.height);const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.88));return {data:new Uint8Array(await b.arrayBuffer()),w:c.width,h:c.height}}
 async function makePdf(prompt,blob){const lines=wrapText(prompt,94),perPage=54,pages=[];for(let i=0;i<lines.length;i+=perPage)pages.push(lines.slice(i,i+perPage));const objs=[null,null,null,null],pageIds=[];for(const pg of pages){const content=`BT\n/F1 9 Tf\n11.8 TL\n42 752 Td\n${pg.map((l,i)=>`${i?'T*\n':''}(${escPdf(l)}) Tj`).join('\n')}\nET`;const cid=objs.length;objs.push({text:`<< /Length ${bytes(content).length} >>\nstream\n${content}\nendstream`});const pid=objs.length;objs.push({text:`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${cid} 0 R >>`});pageIds.push(pid)}if(blob){const im=await jpegFromBlob(blob);const iid=objs.length;objs.push({binary:im.data,prefix:`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.data.length} >>\nstream\n`,suffix:'\nendstream'});const pageW=792,pageH=612,maxW=744,maxH=564,s=Math.min(maxW/im.w,maxH/im.h),w=im.w*s,h=im.h*s,x=(pageW-w)/2,y=(pageH-h)/2;const content=`q\n${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm\n/Im1 Do\nQ`;const cid=objs.length;objs.push({text:`<< /Length ${bytes(content).length} >>\nstream\n${content}\nendstream`});const pid=objs.length;objs.push({text:`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im1 ${iid} 0 R >> >> /Contents ${cid} 0 R >>`});pageIds.push(pid)}objs[1]={text:'<< /Type /Catalog /Pages 2 0 R >>'};objs[2]={text:`<< /Type /Pages /Kids [${pageIds.map(id=>id+' 0 R').join(' ')}] /Count ${pageIds.length} >>`};objs[3]={text:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'};const chunks=[bytes('%PDF-1.4\n%EPICEYES\n')],offsets=[0];let offset=chunks[0].length;for(let i=1;i<objs.length;i++){offsets[i]=offset;const o=objs[i];let part;if(o.binary){part=concat([bytes(`${i} 0 obj\n${o.prefix}`),o.binary,bytes(`${o.suffix}\nendobj\n`)])}else{part=bytes(`${i} 0 obj\n${o.text}\nendobj\n`)}chunks.push(part);offset+=part.length}const xref=offset;let xr=`xref\n0 ${objs.length}\n0000000000 65535 f \n`;for(let i=1;i<objs.length;i++)xr+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';xr+=`trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;chunks.push(bytes(xr));return new Blob(chunks,{type:'application/pdf'})}function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1200)}function speak(text){if(!('speechSynthesis' in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=.97;speechSynthesis.speak(u)}
 
-const SEND_VOICE="Epic Eyes is open. Attach the Epic Eyes PDF that just downloaded. Then type a single question mark and send. The PDF already contains your question and screenshot.";
+const SEND_VOICE="Epic Eyes is open. Attach the Epic Eyes PDF that just downloaded. Type a single question mark and send. The PDF already contains your question and screenshot.";
 $('voiceGuide').onclick=()=>speak(SEND_VOICE);
 $('openAgent').onclick=async()=>{
   const goal=$('goal').value.trim();
